@@ -9,7 +9,7 @@ As a part of Kyoto course on Bioinformatics for Genomic Medicine 2018
 Understanding genetic associaiton
 ==
 
-Firstly, let's try to understand and perform "genetic association testing" using the following data
+Let's start with understanding and performing "genetic association testing" using the following data
 
 ||A/A|A/G|G/G|
 |:--|:--:|:--:|:--:|
@@ -43,13 +43,13 @@ by R,
 [2,]  992 1542
 ```
 
-multiply genotype count of A/A (or G/G) because they have two A (or G) alleles while A/G has one A (or G) allele.
+multiplied genotype count of A/A (or G/G) by 2 because they have two A (or G) alleles while A/G has one A (or G) allele.
 
 We suppose this data is for 1212 hepatitis B chromosomes and 2534 controls chromosomes, which are sampled from much larger (infinite) population with certain population allele frequency (AF). 
 
 The logic of genetic association test is as follows. First, assume AF in hepatitis B and in controls are the same (null hypothesis). Check the distribution of some statistic under null hypothesis. If the statistic of observed data is is quite rare observation under null distribution, we think this data is under alternative hypothesis (that is, AF in hepatitis B and in controls are different). 
 
-Then, we estimate the population frequency under null hypothesis as
+Now, we estimate the population frequency under null hypothesis as
 
 ```r
 > colSums(dat.a)[1]/sum(dat.a)
@@ -66,7 +66,7 @@ This is the overall frequency of A allele. The most possible data under null hyp
 [2,] 890.2147 1643.7853
 ```
 
-Is this similar to the actual data? Maybe not. A in cases is lower than this expected value, while A in controls is higher. The actual observations are different from expectations under null hypothesis. In other words, data indicates AF of cases and controls might be different.
+Is this similar to the actual data? Maybe not. Number of A in cases is lower than this expected value, while A in controls is higher. The actual observations are different from expectations under null hypothesis. In other words, data indicates AF of cases and controls might be different.
 
 Pearson's chi-squared test of independece can test this assertion. The following statistic
 
@@ -82,7 +82,7 @@ What is chi-squared distribution with degree of freedom 1? We can draw it by R a
 
 Please check how it looks like. This is the probability of taking certain $X^2$ value under. 
 
-Let's calculate $X^2$ of our data. Note that, think about vector calculation everytime when you use R.
+Let's calculate $X^2$ of our data. Think about vector calculation everytime when you use R.
 
 ```r
 > sum((dat.a-dat.exp)^2/dat.exp)
@@ -96,7 +96,7 @@ Where is this $X^2$ value in the plot ? Obviously it exceeds the limit of the pr
 > abline(v=55.45014, col=2)
 ```
 
-As I wrote that the horizontal axis means probability. The probability $P(X^2= 55.45014)$ seems to be very small. It is
+As I wrote above, the horizontal axis means probability. The probability $P(X^2= 55.45014)$ seems to be very small. It is
 
 ```r
 > dchisq(55.45014,1)
@@ -112,7 +112,59 @@ As I wrote that the horizontal axis means probability. The probability $P(X^2= 5
 
 Here I use `pchisq`, not `dchisq` indicating cumulative density function. This is the P value obtained by Pearson's chi-squared independence of the allele model genetic association.
 
-Is `X^2` truely follow chi-squared distribution under null hypothesis? We can check it. The count
+### Null distribution
+
+Is `X^2` truely follow chi-squared distribution under null hypothesis? We can check it. The count of A allele from 1212 and 2534 chromosomes with frequency 0.3513081 can be simulated as
+
+```r
+> rbinom(10, 1212, 0.3513081)
+> rbinom(10, 2534, 0.3513081)
+```
+
+Repeat this 10000 times and calcute $X^2$ for each case. There are several ways... I wrote like this, which is not elegant though
+
+```r
+> datnull <- data.frame(n11=rbinom(10000, 1212, 0.3513081), n21= > rbinom(10000, 2534, 0.3513081))
+> datnull$n12 <- 1212 - datnull$n11
+> datnull$n22 <- 2534 - datnull$n21
+> datnull$X2 <- rep(0,10000)
+> for(i in 1:10000) {
++ dat.s <- matrix(unlist(datnull[i,1:4]),nrow=2)
++ af.s <- colSums(dat.s)[1]/sum(dat.s)
++ dat.exp <- cbind(rowSums(dat.s)* af.s, rowSums(dat.s)*(1-af.s))
++ datnull$X2[i] <- sum((dat.s - dat.exp)^2/dat.exp)
+}
+```
+
+Check the histogram of null distribution
+
+```r
+hist(datnull$X2)
+```
+
+The frequency of $X^2$ more than 5 is
+
+```r
+> length(datnull$X2[datnull$X2 > 5])
+```
+
+and the chi-squared distribution gives
+
+```r
+> 1-pchisq(5,1)
+```
+
+Compare the cumulative probabilities
+
+```r
+> res <- data.frame(x=1:15)
+> res$chisq <- 1-pchisq(res$x,1)
+> for(i in 1:15) res$sim[i] <- length(datnull$X2[datnull$X2 > i])/10000
+> plot(res$chisq,res$sim)
+> abline(0,1,col=2)
+```
+
+You may confirm that chi-squared distribution with degree of freedom 1 is a distribution of $X^2$ statistics for the allele counts when we assume the backgroud AF of cases and controls are the same.
 
 ### Yates' correction
 
@@ -123,7 +175,9 @@ In fact, the hepatitis B paper I showed at the lecture further applied Yates' co
 # Please check by yourself
 ```
 
-This gives the same value in the hepatitis B paper. To obtain original Pearson's test P value,
+This gives the same value in the hepatitis B paper. Yates' correction is said to be useful when the sample size is small; however there is some criticism.
+
+To obtain original Pearson's test P value,
 
 ```r
 > chisq.test(dat.a, correct=F)
@@ -131,7 +185,7 @@ This gives the same value in the hepatitis B paper. To obtain original Pearson's
 
 ### Fisher's exact test
 
-Another way of genetic association test is Fisher's exact test, which do not assume infinite size population but to see the distribution of contingency table given 1212 hepatitis B chromosomes and 2534 controls chromosomes. I omit detailed explanation. By R, you can get the result
+Another test of genetic association is Fisher's exact test, which do not assume infinite size population but to see the distribution of contingency table given 1212 hepatitis B chromosomes and 2534 controls chromosomes. I omit detailed explanation. By R, you can get the result
 
 ```r
 > fisher.test(dat.a)
@@ -199,7 +253,7 @@ To fully understand this you may have to learn so many things, but simply, pleas
 Get started for GWAS
 ==
 
-GWAS is simply to do genetic association test genome-widely. 
+GWAS is simply genome-wide genetic association test. 
 
 To do this, usually researchers uses [plink](https://www.cog-genomics.org/plink2) software. So the purpose of latter half is to learn how to use plink.
 
@@ -211,13 +265,13 @@ I put some files for training.
 
 We will start with `sim1.{bed,bim,fam}` at this location. These files includes simulated genotype data for 200 individuals and 451,631 variants. The file format is explained at [this page](http://zzz.bwh.harvard.edu/plink/binary.shtml).
 
-Please access directly to these files in this directory, or copy them to your home. For example, following command may copy `sim1.fam` file to your current directory.
+You can access directly to these files in this directory. Note that you have no priviledge to write anything onto this directory. The output file location must be specified appropriately under your home.
+
+Alternatively you can copy them to your home. For example, following command may copy `sim1.fam` file to your current directory.
 
 ```sh
 $ cp /home/kamatani/pub/data/sim1.fam .
 ```
-
-Note that you are not authorized to write something onto this directory. The output file location must be specified appropriately under your home.
 
 Quality control
 ==
@@ -329,7 +383,7 @@ plink --bfile sim1+kgp \
 	--out sim1+kgp
 ```
 
-Check the plot. I prepared a script. You can do on your own by using R, python, and so on.
+Check the plot to see the population structure. Remove individuals from the analysis if necessary. I prepared a script, but you can do on your own by using R, python, and so on.
 
 ```sh
 python scripts/plotPCA.py \
@@ -348,9 +402,9 @@ plink --bfile sim3 \
 	--out sim3.01
 ```
 
-This does not aim to adjust for any confounders.
+By using this option, allele-model chi-squared test will be performed genome-widely. By putting `fisher` just after `--assoc` you can perform Fisher's exact test genome-widely. This does not aim to adjust for any confounders.
 
-The strongest confounders in genetic association test is population stratification and cryptic relatedness. For the latter, we confiremd that sample are unrelated. For the former, we can adjust for that by using principal component scores as covariate in regression model.
+The strongest confounders in genetic association test is population stratification and cryptic relatedness. For the latter, we have confiremd that sample are unrelated. For the former, we can adjust for that by using principal component scores as covariate in regression model.
 
 ```sh
 # Pruning within this data set
@@ -382,7 +436,7 @@ Now, let's transfer the gwas results from the server to your laptop
 scp <your name>@<server name>:<path to your result>
 ```
 
-Open R. Obtain `qqman` package. I also recommend to use "data.table" package which enables fast data loading, but it's up to you.
+Open R. Obtain `qqman` package. I also recommend to use "data.table" package which enables fast data loading.
 
 ```r
 > install.packages("qqman")
@@ -430,6 +484,8 @@ Usually $\alpha=5.0 \times 10^{-8}$ is considered as genome-wide significance le
 
 ### Pathway analysis
 
+I you have time, you can further try post-GWAS analysis.
+
 You may want to make a biological interpretation of GWAS result. One such way is pathway analysis. The distribution of GWAS statistics are evaluated whether they are enriched in the genes belong to certain biological pathway.
 
 In this course, I show example usage of [Pascal software](https://www2.unil.ch/cbg/index.php?title=Pascal).
@@ -452,9 +508,9 @@ That's it! Now we run Pascal analysis
 	--runpathway=on 
 ```
 
-It first calculates [VEGAS](https://vegas2.qimrberghofer.edu.au) type gene-level associations. Then see the enrichment in pathways.
+It first calculates [VEGAS](https://vegas2.qimrberghofer.edu.au) type gene-level associations. Thereafter, evalute the enrichment in pathways.
 
-**This may takes time** You can have a look on the pre-calculated results.
+**This may take time.** You can have a look on the pre-calculated results in `~kamatani/pub/pascalout/`.
 
 For the detailed description, see [the Pascal website](https://www2.unil.ch/cbg/index.php?title=Pascal).
 
