@@ -307,6 +307,33 @@ then you will get two files, `sim1.imiss` and `sim1.lmiss`. The former file is f
 
 Typically we filter out subjects with missing rate > 0.05, and variants with missing rate > 0.02. The threshold can be changed according to genotyping platform and laboratoty. It is good idea to see the distribution first.
 
+### heterozygosity
+
+Excess heterozygosity generally indicates contamination, or mixed bred. check this
+
+```sh
+plink \
+	--bfile sim1 \
+	--het \
+	--out sim1
+```
+
+You can check the distribution of heterozygosity.
+
+```r
+> het <- read.table("test/sim1.het",T)
+> het$het <- (het$N.NM. - het$O.HOM.) / het$N.NM.
+> hist(het$het)
+```
+
+Again, this is a simulated data, without contaminated sample. If you have contaminated sample, it will show heterozygosity deviated from this kind of distribution. You can exclude it by applying 4 SD threshold for example.
+
+### Sex check
+
+This is to check consistency between provided sex information and genetically inferred sex using X (and Y) chromosome data. 
+
+This time I don't provide X/Y chromosome data so skip this.
+
 ### Check relatedness
 
 Next is to check genetic relatedness since GWAS requires subjects to be unrelated. IBD analysis can infer the degree of relationship between pair of the subjects. 
@@ -487,9 +514,61 @@ Then let's plot the associations.
 
 Usually $\alpha=5.0 \times 10^{-8}$ is considered as genome-wide significance level. Unfortunately we don't observe significant association.
 
-### Pathway analysis
+### MLMA
 
-I you have time, you can further try post-GWAS analysis.
+This is one of the advanced analysis introduced at the lecture.
+
+```
+gcta64 \
+	--bfile pub/data/sim1 \
+	--make-grm \
+	--out test/sim1 \
+	--thread-num 20
+```
+
+Heritability can be calculated
+
+```sh
+gawk '{print $1,$2,$6-1}' sim1.fam > sim1.cc.phen
+gcta64 --reml \
+	--grm sim1 \
+	--pheno sim1.cc.phen \
+	--prevalence 0.02 \
+	--out sim1.cc
+```
+
+MLMi
+
+
+```sh
+gcta64 --mlma \
+	--bfile sim1 \
+	--grm sim1 \
+	--pheno sim1.cc.phen \
+	--out sim1.cc
+```
+
+MLMe
+
+```sh
+gcta64 --mlma-loco \
+	--bfile sim1 \
+	--pheno sim1.cc.phen \
+	--out sim1
+
+# or
+gcta64 --mlma-loco \
+	--bfile pub/data/sim1 \
+	--grm test/sim1 \
+	--mlma-subtract-grm test/sim1.chr1 \
+	--chr 1 \
+	--pheno test/sim1.cc.phen \
+	--out test/sim1.loco
+```
+
+## Pathway analysis
+
+I you have time, you can further try post-GWAS analysis. From now, summary statistics will be used; you can use the GWAS result you have calculated, or use the publicly available one obtained from database, like [LDhub](http://ldsc.broadinstitute.org/ldhub/) or [jenger](http://jenger.riken.jp/en/result)
 
 You may want to make a biological interpretation of GWAS result. One such way is pathway analysis. The distribution of GWAS statistics are evaluated whether they are enriched in the genes belong to certain biological pathway.
 
@@ -519,8 +598,104 @@ It first calculates [VEGAS](https://vegas2.qimrberghofer.edu.au) type gene-level
 
 For the detailed description, see [the Pascal website](https://www2.unil.ch/cbg/index.php?title=Pascal).
 
-### Imputation
+## Analysis using summary statistics
 
-Maybe we don't have enough time to do imputation.
+In this example, please use "Rheumatoid Arthritis (European)" from [jenger](http://jenger.riken.jp/en/result).
 
-However, for current GWAS, imputation is essential, we must do that. Pathway analysis, cell-type specificity analysis and so on... should also be done on the imputation results. 
+### Heritability and bias estimation
+
+```sh
+mkdir ldsc
+python python/ldsc/munge_sumstats.py \
+	--sumstats pub/RA_GWASmeta_European_v2.txt.gz \
+	--N-cas 14361 \
+	--N-con 43923 \
+	--snp SNPID \
+	--a1 A1 --a2 A2 --p P-val \
+	--signed-sumstats "OR(A1)",1 \
+	--merge-alleles python/ldsc/bulik/w_hm3.snplist.bz2 \
+	--out ldsc/RA_GWASmeta_European_v2
+```
+
+To calculate heritability
+
+```sh
+python python/ldsc/ldsc.py \
+	--h2 ldsc/RA_GWASmeta_European_v2.sumstats.gz \
+	--ref-ld-chr ldsc/bulik/eur_ref_ld_chr/ \
+	--w-ld-chr ldsc/bulik/eur_w_ld_chr/ \
+	--out RA_GWASmeta_European_v2
+```
+
+This is not liability-scaled. Put prevalence value
+
+```sh
+python python/ldsc/ldsc.py \
+	--h2 ldsc/RA_GWASmeta_European_v2.sumstats.gz \
+	--ref-ld-chr ldsc/bulik/eur_ref_ld_chr/ \
+	--w-ld-chr ldsc/bulik/eur_w_ld_chr/ \
+	--samp-prev 0.25 \
+	--pop-prev 0.01 \
+	--out RA_GWASmeta_European_v2_prev01
+```
+
+LD score regression is useful for number of analyses, but one of the application is to see the genome-wide bias (Intercept and Ratio); see the screen output and try to get an idea. 
+
+In the first trial we used European GWAS result. Now let's apply this to Asian result (obtain "Rheumatoid Arthritis (Asian)" from [jenger](http://jenger.riken.jp/en/result))
+
+```sh
+python python/ldsc/munge_sumstats.py \
+	--sumstats pub/RA_GWASmeta_Asian_v2.txt.gz \
+	--N-cas 4873 \
+	--N-con 17642 \
+	--snp SNPID \
+	--a1 A1 --a2 A2 --p P-val \
+	--signed-sumstats "OR(A1)",1 \
+	--merge-alleles python/ldsc/bulik/w_hm3.snplist.bz2 \
+	--out ldsc/RA_GWASmeta_Asian_v2
+	
+python python/ldsc/ldsc.py \
+	--h2 ldsc/RA_GWASmeta_Asian_v2.sumstats.gz \
+	--ref-ld-chr ldsc/bulik/eas_ldscores/ \
+	--w-ld-chr ldsc/bulik/eas_ldscores/ \
+	--samp-prev 0.22 \
+	--pop-prev 0.01 \
+	--out RA_GWASmeta_Asian_v2_prev01
+```
+
+Any difference ?
+
+### Partitioned heritablity
+
+Which functional regions are the GWAS SNPs enriched in?
+
+```sh
+python python/ldsc/ldsc.py \
+	--h2 ldsc/RA_GWASmeta_European_v2.sumstats.gz \
+	--ref-ld-chr python/ldsc/bulik/1000G_EUR_Phase3_baseline/baseline. \
+	--w-ld-chr python/ldsc/bulik/1000G_Phase3_weights_hm3_no_MHC/weights.hm3_noMHC. \
+	--overlap-annot \
+	--frqfile-chr python/ldsc/bulik/1000G_Phase3_frq/1000G.EUR.QC. \
+	--out ldsc/RA_GWASmeta_European_v2.partition
+```
+
+Note that, apply this method to Asian data may require some modification of input files. We will prepare necessary data by `http://jenger.riken.jp` near future.
+	
+### Cell-type specificity
+
+To see enrichment into cell-groups,
+
+```sh
+python python/ldsc/ldsc.py \
+	--h2 ldsc/RA_GWASmeta_European_v2.sumstats.gz \
+	--w-ld-chr python/ldsc/bulik/1000G_Phase3_weights_hm3_no_MHC/weights.hm3_noMHC. \
+	--ref-ld-chr python/ldsc/bulik/1000G_Phase3_cell_type_groups/cell_type_group.6.,python/ldsc/bulik/1000G_EUR_Phase3_baseline/baseline. \
+	--overlap-annot \
+	--frqfile-chr python/ldsc/bulik/1000G_Phase3_frq/1000G.EUR.QC. \
+	--out RA_Hematopoietic \
+	--print-coefficients
+```
+
+As for the `cell_type_group names`, see `python/ldsc/bulik/1000G_Phase3_cell_type_groups/names`. 
+
+For theoretical aspect, see [Hilary et al. Nat Genet 2015.](http://www.nature.com/ng/journal/v47/n11/abs/ng.3404.html)
