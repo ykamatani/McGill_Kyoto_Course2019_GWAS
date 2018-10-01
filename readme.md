@@ -273,6 +273,12 @@ Alternatively you can copy them to your home. For example, following command may
 $ cp /home/kamatani/pub/data/sim1.fam .
 ```
 
+Or you can get the data (with this md file from github page.
+
+```sh
+$ git clone https://github.com/ykamatani/KyotoCourse2018_GWAS.git
+```
+
 Quality control
 ==
 
@@ -323,11 +329,10 @@ Then, IBD calculation is done by using this pruned SNPs.
 
 ```sh
 plink \
-	--bfile pub/data/sim1 \
-	--extract  \
-	test/sim1.prune.in \
+	--bfile sim1 \
+	--extract sim1.prune.in \
 	--genome gz \
-	--out test/sim1
+	--out sim1
 ```
 
 Have a look on the result... You can judge relationship by using following table
@@ -363,7 +368,7 @@ plink --bfile data/sim1 \
 	--allow-no-sex
 ```
 
-Then prune SNPs. **Pruning** in the context of genetic study means that removing redundant SNPs. The genome of human and other organisms takes correlation structure because of linkage disequilibrium (see lecture materials). 
+Then prune SNPs. **Pruning** in the context of GWAS means that removing redundant SNPs. The genome of human and other organisms takes correlation structure because of linkage disequilibrium (see lecture materials). 
 
 ```sh
 plink \
@@ -397,9 +402,9 @@ python scripts/plotPCA.py \
 GWAS can be done simply
 
 ```sh
-plink --bfile sim3 \
+plink --bfile sim1 \
 	--assoc \
-	--out sim3.01
+	--out sim1
 ```
 
 By using this option, allele-model chi-squared test will be performed genome-widely. By putting `fisher` just after `--assoc` you can perform Fisher's exact test genome-widely. This does not aim to adjust for any confounders.
@@ -408,22 +413,22 @@ The strongest confounders in genetic association test is population stratificati
 
 ```sh
 # Pruning within this data set
-plink --bfile sim3 \
+plink --bfile sim1 \
 	--indep-pairwise 50 5 0.2 \
-	--out sim3
+	--out sim1
 
 # PCA within this data set
-plink --bfile sim3 \
-	--extract sim3.prune.in \
+plink --bfile sim1 \
+	--extract sim1.prune.in \
 	--pca \
-	--out sim3.pruned
+	--out sim1.pruned
 	
 # GWAS adjusted for PC scores. Note that we need to add header to covariate file
-plink --bfile sim3 \
+plink --bfile sim1 \
 	--logistic \
-	--covar sim3.pruned.eigenvec \
+	--covar sim1.pruned.eigenvec \
 	--covar-name pc1,pc2 \
-	--out sim3.pc1-2
+	--out sim1.pc1-2
 ```
 
 ### Draw Q-Q and Manhattan plot
@@ -452,9 +457,9 @@ Read the result file and draw Q-Q plot. Note that, when you run regression analy
 > 
 > # Load GWAS results
 > # For data.table users
-> df <- fread("sim3.pc1-2.assoc.logistic")
+> df <- fread("sim1.pc1-2.assoc.logistic")
 > # If you want to stick to standard functions
-> df <- read.table("sim3.pc1-2.assoc.logistic",T)
+> df <- read.table("sim1.pc1-2.assoc.logistic",T)
 > 
 > # You may have a look into the result file
 > head(df)
@@ -495,13 +500,13 @@ Firstly, if you are not analyzing European descent, you need to prepare custom r
 Next, we need to prepare P value file.
 
 ```sh
-gawk '$5=="ADD" && $9 != "NA"{print $2 "\t" $9}' sim3.pc1-2.assoc.logistic > sim3.pc1-2.assoc.logistic.pval
+gawk '$5=="ADD" && $9 != "NA"{print $2 "\t" $9}' sim1.pc1-2.assoc.logistic > sim1.pc1-2.assoc.logistic.pval
 ```
 
 That's it! Now we run Pascal analysis
 
 ```sh
-./Pascal --pval ~/test/sim3.pc1-2.assoc.logistic.pval \
+./Pascal --pval ~/test/sim1.pc1-2.assoc.logistic.pval \
 	--custom=JPT \
 	--customdir=/home/kamatani/pub/pascal \
 	--genescoring=sum \
