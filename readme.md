@@ -2,7 +2,7 @@ Practical: Genome-wide association studies
 ===
 September 24, 2018
 
-Yoichiro Kamatani
+[Yoichiro Kamatani](kamatani.yoichiro@genome.med.kyoto-u.ac.jp)
 
 As a part of Kyoto course on Bioinformatics for Genomic Medicine 2018
 
@@ -49,17 +49,16 @@ We suppose this data is for 1212 hepatitis B chromosomes and 2534 controls chrom
 
 The logic of genetic association test is as follows. First, assume AF in hepatitis B and in controls are the same (null hypothesis). Check the distribution of some statistic under null hypothesis. If the statistic of observed data is is quite rare observation under null distribution, we think this data is under alternative hypothesis (that is, AF in hepatitis B and in controls are different). 
 
-Now, we estimate the population frequency under null hypothesis as
+Now, we calculate an overall A allele frequency as a population frequency under null hypothesis.
 
 ```r
-> colSums(dat.a)[1]/sum(dat.a)
-[1] 0.3513081
+> p0 <- colSums(dat.a)[1]/sum(dat.a)
 ```
 
-This is the overall frequency of A allele. The most possible data under null hypothesis would be
+The most likely data (i.e. expected values) under null hypothesis would be
 
 ```r
-> dat.exp <- cbind(rowSums(dat.a)*0.3513081, rowSums(dat.a)*(1-0.3513081))
+> dat.exp <- cbind(rowSums(dat.a)*p0, rowSums(dat.a)*(1-p0))
 > dat.exp
          [,1]      [,2]
 [1,] 425.7854  786.2146
@@ -80,33 +79,32 @@ What is chi-squared distribution with degree of freedom 1? We can draw it by R a
 > curve(dchisq(x,1), 0, 10)
 ```
 
-Please check how it looks like. This is the probability of taking certain $X^2$ value under. 
+Please check how it looks like. This is the probability of taking certain $X^2$ value under null distribution. 
 
 Let's calculate $X^2$ of our data. Think about vector calculation everytime when you use R.
 
 ```r
-> sum((dat.a-dat.exp)^2/dat.exp)
-[1] 55.45014
+> mychisq <- sum((dat.a-dat.exp)^2/dat.exp)
 ```
 
-Where is this $X^2$ value in the plot ? Obviously it exceeds the limit of the previous plot, so draw new plot. 
+Where is this $X^2$ value in the plot ? Obviously it exceeds the limit of the previous plot, so draw plot again with higher upper limit. 
 
 ```r
 > curve(dchisq(x,1), 0, 100)
-> abline(v=55.45014, col=2)
+> abline(v= mychisq, col=2)
 ```
 
 As I wrote above, the horizontal axis means probability. The probability $P(X^2= 55.45014)$ seems to be very small. It is
 
 ```r
-> dchisq(55.45014,1)
+> dchisq(mychisq, 1)
 # Please check by yourself
 ```
 
-`dchisq` returns values from probability density function. In genetic association test (or in hypothesis testing in general), we want to know what is the probability of obtaining this, **or rarer observations**. Therefore what we need is not $P(X^2= 55.45014)$ but $\int_{X^2= 55.45014}^{\inf} P(X^2)dX^2$. This can also be easily obtained by R
+`dchisq` returns values from chi-squared probability density function. In genetic association test (or in hypothesis testing in general), we want to know what is the probability of obtaining this **or rarer observations**. Therefore what we need is integration of probability $P(X^2)$ for all $X^2 > 55.45014$. A function is prepared to obtain this by R
 
 ```r
-> 1 - pchisq(55.45014,1))
+> 1 - pchisq(mychisq, 1)
 # Please check by yourself
 ```
 
@@ -114,17 +112,23 @@ Here I use `pchisq`, not `dchisq` indicating cumulative density function. This i
 
 ### Null distribution
 
-Is `X^2` truely follow chi-squared distribution under null hypothesis? We can check it. The count of A allele from 1212 and 2534 chromosomes with frequency 0.3513081 can be simulated as
+Is `X^2` truely follow chi-squared distribution under null hypothesis? We can check it by simulation. 
+
+The count of A allele from 1212 and 2534 chromosomes with frequency 0.3513081 can be simulated as
 
 ```r
-> rbinom(10, 1212, 0.3513081)
-> rbinom(10, 2534, 0.3513081)
+> rbinom(10, 1212, p0)
+ [1] 441 437 429 462 394 415 417 399 437 428
+> rbinom(10, 2534, p0)
+ [1] 886 879 896 896 872 867 907 858 848 907
 ```
+
+You may observe different numbers since these are randomly generated.
 
 Repeat this 10000 times and calcute $X^2$ for each case. There are several ways... I wrote like this, which is not elegant though
 
 ```r
-> datnull <- data.frame(n11=rbinom(10000, 1212, 0.3513081), n21= > rbinom(10000, 2534, 0.3513081))
+> datnull <- data.frame(n11=rbinom(10000, 1212, p0), n21= > rbinom(10000, 2534, p0))
 > datnull$n12 <- 1212 - datnull$n11
 > datnull$n22 <- 2534 - datnull$n21
 > datnull$X2 <- rep(0,10000)
@@ -139,7 +143,7 @@ Repeat this 10000 times and calcute $X^2$ for each case. There are several ways.
 Check the histogram of null distribution
 
 ```r
-hist(datnull$X2)
+> hist(datnull$X2)
 ```
 
 The frequency of $X^2$ more than 5 is
@@ -154,7 +158,9 @@ and the chi-squared distribution gives
 > 1-pchisq(5,1)
 ```
 
-Compare the cumulative probabilities
+Are these similar ?
+
+Compare with cumulative probability at multiple points
 
 ```r
 > res <- data.frame(x=1:15)
@@ -181,6 +187,7 @@ To obtain original Pearson's test P value,
 
 ```r
 > chisq.test(dat.a, correct=F)
+# Please check by yourself
 ```
 
 ### Fisher's exact test
@@ -189,66 +196,57 @@ Another test of genetic association is Fisher's exact test, which do not assume 
 
 ```r
 > fisher.test(dat.a)
-
-	Fisher's Exact Test for Count Data
-
-data:  dat.a
-p-value = 5.648e-14
-alternative hypothesis: true odds ratio is not equal to 1
-95 percent confidence interval:
- 0.4864156 0.6606245
-sample estimates:
-odds ratio
- 0.5672478
+# Please check by yourself
 ```
 
 For large sample size (without any smaller counts in the table) it is generally equivalent with Pearson's test, and if the number is small, exact test is better.
 
+### Armitage trend test
+
+To see the alleleic effect, we generated allele-model table and did hypothesis testing for 2x2 table. But this is not the sigle way to see alleleic model effect.
+
+In trend test, the trend (increased risk from A/A to A/G, then A/G to G/G) can be evaluated.
+
+```r
+> prop.trend.test(dat[1,],dat[1,]+dat[2,])
+# Please check by yourself
+```
+
 ### Logistic regression analysis
 
-Finally, you can try regression analysis. 
+Finally, you can try regression analysis. This is equivalent to trend test without covariates.
 
-This time, not allelic table but genotypic table is considered. The number of A allele is counted for each individual, thus this is also allele model genetic test.
+Like trend test, we do not use allelic table but genotypic table. The number of A allele is counted for each individual (additive genetic model), thus this is also allele model genetic test.
+
+Try to create individual data from the table. Check the dataframe by `head` command.
 
 ```r
 > datind <- data.frame(a=c(rep(2,42),rep(1,240),rep(0,324),
 +					 rep(2,197),rep(1,598),rep(0,472)),
 + 				 y=c(rep(1,606), rep(0,1267)))
 > head(datind)
+# Please check by yourself
 ```
 
-Check the dataframe by `head` command. Here $y$ is phenotypic value where 1 is affected by hepatitis B, 0 is not. $a$ is the number of alleles the individual has.
+Here $y$ is phenotypic value where 1 is affected by hepatitis B, 0 is not. $a$ is the number of alleles the individual has.
 
 Then logistic regression analysis can be performed as follows
 
 ```r
 > summary(glm(y~a, data=datind, family=binomial(link="logit")))
-
-Call:
-glm(formula = y ~ a, family = binomial(link = "logit"), data = datind)
-
-Deviance Residuals:
-    Min       1Q   Median       3Q      Max
--1.0258  -1.0258  -0.8146   1.3369   1.8437
-
-Coefficients:
-            Estimate Std. Error z value Pr(>|z|)
-(Intercept) -0.36750    0.06871  -5.349 8.86e-08 ***
-a           -0.56514    0.07752  -7.290 3.10e-13 ***
----
-Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
-
-(Dispersion parameter for binomial family taken to be 1)
-
-    Null deviance: 2358.2  on 1872  degrees of freedom
-Residual deviance: 2301.9  on 1871  degrees of freedom
-AIC: 2305.9
-
-Number of Fisher Scoring iterations: 4
-
+# Please check by yourself
 ```
 
 To fully understand this you may have to learn so many things, but simply, please confirm that the P value for `a` (allelic effect) is similar to what we have seen by Pearson's test or exact test. 
+
+We can put `d` (dominance) term
+
+```r
+> datind$d <- ifelse(datind$a == 1,1,0)
+> summary(glm(y~a+d, data=datind, family=binomial(link="logit")))
+```
+
+In this toy example, the existence of dominance effect can be assesed by P value for this dominance effect term. You can see the flexible nature of logistic regression analysis.
 
 Get started for GWAS
 ==
@@ -600,7 +598,9 @@ For the detailed description, see [the Pascal website](https://www2.unil.ch/cbg/
 
 ## Analysis using summary statistics
 
-In this example, please use "Rheumatoid Arthritis (European)" from [jenger](http://jenger.riken.jp/en/result).
+To perform following processes, please obtain [ldsc package](https://github.com/bulik/ldsc) first. Please also [obtain pre-calculated LD scores](https://github.com/bulik/ldsc#where-can-i-get-ld-scores).
+
+In this example, please use "Rheumatoid Arthritis (European)" from [jenger](http://jenger.riken.jp/en/result). You can use Japanese / East-Asian result as well, but you may need some tuning.
 
 ### Heritability and bias estimation
 
@@ -667,7 +667,7 @@ Any difference ?
 
 ### Partitioned heritablity
 
-Which functional regions are the GWAS SNPs enriched in?
+Which functional regions are the GWAS SNPs enriched in? You may further need to obtain [partitioned LD score](https://github.com/bulik/ldsc#where-can-i-get-ld-scores).
 
 ```sh
 python python/ldsc/ldsc.py \
