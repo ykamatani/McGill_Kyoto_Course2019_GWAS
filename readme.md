@@ -1,8 +1,10 @@
 Practical: Genome-wide association studies
 ===
-September 24, 2018
+October 27, 2019
 
-[Yoichiro Kamatani](kamatani.yoichiro@genome.med.kyoto-u.ac.jp)
+[Yoichiro Kamatani](kamatani@genome.med.kyoto-u.ac.jp)
+
+As a part of The 7th McGill-Kyoto Training Course & Symposium 2019
 
 As a part of Kyoto course on Bioinformatics for Genomic Medicine 2018
 
