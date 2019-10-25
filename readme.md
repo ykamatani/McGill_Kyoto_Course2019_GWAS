@@ -6,8 +6,6 @@ October 27, 2019
 
 As a part of The 7th McGill-Kyoto Training Course & Symposium 2019
 
-As a part of Kyoto course on Bioinformatics for Genomic Medicine 2018
-
 Understanding genetic associaiton
 ==
 
