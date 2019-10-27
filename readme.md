@@ -662,7 +662,7 @@ In this section we try LD score regression analysis. LD score regression utilize
 
 This is done with  [ldsc package](https://github.com/bulik/ldsc). 
 
-In this example, we use GWAS summary statistics for rheumatoid arthritis. The files are prepared in the server, and they are freely available at [jenger](http://jenger.riken.jp/en/result).
+In this example, we use GWAS summary statistics for rheumatoid arthritis (Okada et al. Nature 2014). The files are prepared in the server, and they are freely available at [jenger](http://jenger.riken.jp/en/result).
 
 To do LDSC analysis and use these data now, you can link the folder containing the file in your current folder
 
@@ -698,12 +698,12 @@ This is not liability-scaled. Put prevalence value
 
 ```sh
 ldsc.py \
-	--h2 ldsc/RA_GWASmeta_European_v2.sumstats.gz \
+	--h2 RA_GWASmeta_European_v2.sumstats.gz \
 	--ref-ld-chr ldsc_files/eur_ref_ld_chr/ \
 	--w-ld-chr ldsc_files/eur_w_ld_chr/ \
 	--samp-prev 0.25 \
 	--pop-prev 0.01 \
-	--out ldsc/RA_GWASmeta_European_v2_prev01
+	--out RA_GWASmeta_European_v2_prev01
 ```
 
 LD score regression is useful for number of analyses, but one of the application is to see the genome-wide bias (Intercept and Ratio); see the screen output and try to get an idea. 
@@ -719,7 +719,7 @@ munge_sumstats.py \
 	--out RA_GWASmeta_Asian_v2
 	
 ldsc.py \
-	--h2 ldsc/RA_GWASmeta_Asian_v2.sumstats.gz \
+	--h2 RA_GWASmeta_Asian_v2.sumstats.gz \
 	--ref-ld-chr ldsc_files/eas_ldscores/ \
 	--w-ld-chr ldsc_files/eas_ldscores/ \
 	--samp-prev 0.22 \
@@ -736,14 +736,14 @@ Which functional regions are the GWAS SNPs enriched in? You may further need to 
 ```sh
 ldsc.py \
 	--h2 RA_GWASmeta_European_v2.sumstats.gz \
-	--ref-ld-chr ldsc_files/1000G_EUR_Phase3_baseline/baseline. \
+	--ref-ld-chr ldsc_files/1000G_EUR_Phase3_baseline/baselineLD. \
 	--w-ld-chr ldsc_files/1000G_Phase3_weights_hm3_no_MHC/weights.hm3_noMHC. \
 	--overlap-annot \
 	--frqfile-chr ldsc_files/1000G_Phase3_frq/1000G.EUR.QC. \
 	--out RA_GWASmeta_European_v2.partition
 ```
 
-Note that, apply this method to Asian data may require some modification of input files. We will prepare necessary data by `http://jenger.riken.jp` near future.
+Note that, apply this method to Asian data may require some modification of input files. They are available at `http://jenger.riken.jp/en/data` if you want to try.
 	
 ### Cell-type specificity
 
@@ -753,7 +753,7 @@ To see enrichment into cell-groups,
 ldsc.py \
 	--h2 RA_GWASmeta_European_v2.sumstats.gz \
 	--w-ld-chr ldsc_files/1000G_Phase3_weights_hm3_no_MHC/weights.hm3_noMHC. \
-	--ref-ld-chr ldsc_files/1000G_Phase3_cell_type_groups/cell_type_group.6.,ldsc_files/1000G_EUR_Phase3_baseline/baseline. \
+	--ref-ld-chr ldsc_files/1000G_Phase3_cell_type_groups/cell_type_group.6.,ldsc_files/1000G_EUR_Phase3_baseline/baselineLD. \
 	--overlap-annot \
 	--frqfile-chr ldsc_files/1000G_Phase3_frq/1000G.EUR.QC. \
 	--out RA_Hematopoietic \
@@ -761,5 +761,3 @@ ldsc.py \
 ```
 
 As for the `cell_type_group names`, see `ldsc_files/1000G_Phase3_cell_type_groups/names`. 
-
-For theoretical aspect, see [Hilary et al. Nat Genet 2015.](http://www.nature.com/ng/journal/v47/n11/abs/ng.3404.html)
